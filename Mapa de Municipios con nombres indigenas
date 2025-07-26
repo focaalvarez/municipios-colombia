@@ -1,0 +1,74 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Jul 25 20:45:09 2025
+
+@author: DELL
+"""
+
+import pandas as pd
+import plotly.express as px
+import json
+
+
+#Divipola fuente para departamentos https://www.datos.gov.co/Mapas-Nacionales/DIVIPOLA-C-digos-municipios/gdxc-w37w/about_data
+
+# Leer directamente
+df = pd.read_csv('DIVIPOLA-_C_digos_municipios_20250726.CSV',
+                 dtype ={'Código Departamento':str,'Código Municipio':str})
+
+
+
+#Anotar valores
+# df.loc[df["Nombre Municipio"].isin(["ABEJORRAL", "MEDELLÍN"]), "value"] = 1
+df['helper']=df['Nombre Departamento']+df['Nombre Municipio']
+
+df2=pd.read_csv('municipios indigenas proximity ai.csv')
+df2["Nombre Municipio"] = df2["Nombre Municipio"].str.upper()
+df2["Departamento"] = df2["Departamento"].str.upper()
+df2['helper']=df2["Departamento"]+df2["Nombre Municipio"]
+
+df2=df2[['Nombre Indigena','Significado','helper']]
+
+df=pd.merge(df, df2, how='left', on='helper')
+df['Nombre Indigena']=df['Nombre Indigena'].fillna(0)
+df['Significado']=df['Significado'].fillna('')
+df['Nombre Indigena']=df['Nombre Indigena'].astype(str)
+
+
+
+#Fuente geoJson https://github.com/caticoa3/colombia_mapa?tab=readme-ov-file
+# 2. Carga archivo GeoJSON con municipios
+
+   
+with open("co_2018_MGN_MPIO_POLITICO.geojson", encoding="utf‑8") as f:
+   geo2 = json.load(f)
+
+
+# 3. Mapa base – polígonos
+fig = px.choropleth(
+   df, geojson=geo2,
+   locations="Código Municipio",
+   featureidkey="properties.MPIO_CCNCT",
+   color='Nombre Indigena',
+   # color_continuous_scale=['#B7B7B7', "red"],
+   color_discrete_sequence=['#B7B7B7', "red"],
+   scope="south america",
+   projection="mercator",
+   title="Municipios de Colombia con significados indigenas",
+   fitbounds='geojson',
+   hover_name='Nombre Municipio',
+   hover_data=['Nombre Indigena','Significado','Nombre Departamento']
+   
+)
+
+
+# 5. Ajustes visuales
+fig.update_traces(marker_line_color='#B7B7B7', marker_line_width=0.5,showlegend=False)
+
+fig.update_geos(
+   showcountries=False,
+   showland=True, landcolor="whitesmoke", countrycolor="black")
+
+fig.update_layout(margin={"r":0,"t":30,"l":0,"b":0},showlegend=False)
+
+fig.write_html('mapa_municipios.html',auto_open=True,config= {'displaylogo': False})
