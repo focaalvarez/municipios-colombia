@@ -32,12 +32,17 @@ df2['helper']=df2["Departamento"]+df2["Nombre Municipio"]
 
 df2=df2[['Nombre Indigena','Significado','helper']]
 
+df2=df2.drop_duplicates(subset='helper', keep='first')##
+
 df=pd.merge(df, df2, how='left', on='helper')
 df['Nombre Indigena']=df['Nombre Indigena'].fillna(0)
 df['Significado']=df['Significado'].fillna('')
 df['Nombre Indigena']=df['Nombre Indigena'].astype(str)
 
-
+# Calculate percentage
+group_counts = df['Nombre Indigena'].value_counts(dropna=False)
+group_percentages = (group_counts / len(df)) * 100
+text_to_display= f"Porcentaje municipios con nombre indígena: {int(round(group_percentages[1]))}%"
 
 #Fuente geoJson https://github.com/caticoa3/colombia_mapa?tab=readme-ov-file
 # 2. Carga archivo GeoJSON con municipios
@@ -72,6 +77,24 @@ fig.update_geos(
    showcountries=False,
    showland=True, landcolor="whitesmoke", countrycolor="black")
 
-fig.update_layout(margin={"r":0,"t":30,"l":0,"b":0})
+
+
+
+fig.update_layout(margin={"r":0,"t":30,"l":0,"b":0},
+                  
+                  annotations=[
+                      dict(
+                          x=1.1,  # Position it at the center horizontally
+                          y=0.8,  # Position it slightly above the map
+                          xref="paper",  # Use paper coordinates
+                          yref="paper",  # Use paper coordinates
+                          text=text_to_display,  # Custom text for the annotation
+                          showarrow=False,
+                          font=dict(size=12, color="darkgrey"),
+                          align="center"
+                      )
+                  ])
+
+
 
 fig.write_html('mapa_municipios.html',auto_open=True,config= {'displaylogo': False})
