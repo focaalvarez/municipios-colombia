@@ -1,0 +1,140 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Jul 25 20:45:09 2025
+
+@author: DELL
+"""
+
+import pandas as pd
+import plotly.express as px
+import json
+
+
+#Divipola fuente para departamentos https://www.datos.gov.co/Mapas-Nacionales/DIVIPOLA-C-digos-municipios/gdxc-w37w/about_data
+
+# Leer directamente
+df = pd.read_csv('DIVIPOLA-_C_digos_municipios_20250726.CSV',
+                 dtype ={'Código Departamento':str,'Código Municipio':str})
+
+
+
+#Anotar valores
+# df.loc[df["Nombre Municipio"].isin(["ABEJORRAL", "MEDELLÍN"]), "value"] = 1
+df['helper']=df['Nombre Departamento']+df['Nombre Municipio']
+
+# df2=pd.read_csv('municipios indigenas proximity ai.csv')
+df2=pd.read_csv('municipios diego roselli 2.csv')
+# df2['Nombre Indigena']=1
+
+df2["Nombre Municipio"] = df2["Nombre Municipio"].str.upper()
+df2["Departamento"] = df2["Departamento"].str.upper()
+df2['helper']=df2["Departamento"]+df2["Nombre Municipio"]
+
+df2=df2[['Tipo de Nombre','Significado','helper']]
+
+df2=df2.drop_duplicates(subset='helper', keep='first')##
+
+df=pd.merge(df, df2, how='left', on='helper')
+df['Tipo de Nombre']=df['Tipo de Nombre'].fillna(0)
+df['Significado']=df['Significado'].fillna('')
+df['Tipo de Nombre']=df['Tipo de Nombre'].astype(str)
+
+# Calculate percentage
+# group_counts = df['Nombre Indigena'].value_counts(dropna=False)
+# group_percentages = (group_counts / len(df)) * 100
+# text_to_display= f"Porcentaje municipios con nombre indígena: {int(round(group_percentages[1]))}%"
+
+#Fuente geoJson https://github.com/caticoa3/colombia_mapa?tab=readme-ov-file
+# 2. Carga archivo GeoJSON con municipios
+
+  
+
+#Wrangle data
+grouped = df.groupby(['Código Departamento', 'Nombre Departamento', 'Tipo de Nombre']).size().reset_index(name='count')
+
+# Step 2: Total municipios per department
+totals = grouped.groupby(['Código Departamento', 'Nombre Departamento'])['count'].sum().reset_index(name='total')
+
+# Step 3: Merge total counts back into grouped
+grouped = grouped.merge(totals, on=['Código Departamento', 'Nombre Departamento'])
+
+# Step 4: Calculate percentage
+grouped['percentage'] = (grouped['count'] / grouped['total']) * 100
+
+# Step 5: Sort and keep only the top tipo de nombre per department
+sorted_grouped = grouped.sort_values(['Código Departamento', 'percentage'], ascending=[True, False])
+most_common = sorted_grouped.groupby('Código Departamento').first().reset_index()
+
+# Step 6: Rename and format output
+most_common = most_common.rename(columns={
+    'Tipo de Nombre': 'Tipo de nombre mas comun',
+    'percentage': 'Percentage'
+})
+
+# Optional: round percentage
+most_common['Percentage'] = most_common['Percentage'].round(2)
+
+# Step 7: Keep only relevant columns
+final_df = most_common[['Código Departamento', 'Nombre Departamento', 'Tipo de nombre mas comun', 'Percentage']]
+
+# Final output
+
+
+
+with open("co_2018_MGN_DPTO_POLITICO.geojson", encoding="utf‑8") as f:
+   geo2 = json.load(f)
+
+# 3. Mapa base – polígonos
+fig = px.choropleth(
+   final_df, geojson=geo2,
+   locations="Código Departamento",
+   featureidkey="properties.DPTO_CCDGO",
+   color='Tipo de nombre mas comun',
+   # color_continuous_scale=['#B7B7B7', "red"],
+   # color_discrete_sequence=[ "red",'#B7B7B7'],
+   color_discrete_map = {'0':'#c2c2c2',
+                         'Otro Origen':'#c2c2c2',
+                        'Origen Indigena':'#ff0a27',
+                       'Origen Natural':'#496e52',
+                        'Origen Europeo':'#684aff',
+                        'Origen Religioso':'#ffa14a',
+                        'Origen por nombre de una persona':'#fa7080'},
+                          
+   scope="south america",
+   projection="mercator",
+   title="Toponimia de Municipios de Colombia",
+   fitbounds='geojson',
+   hover_name='Nombre Departamento',
+   hover_data={'Nombre Departamento':True,'Código Departamento':False,'Tipo de nombre mas comun':True,'Percentage':True}
+   # 
+)
+
+
+# 5. Ajustes visuales
+fig.update_traces(marker_line_color='#B7B7B7', marker_line_width=0.5)
+
+fig.update_geos(
+   showcountries=False,
+   showland=True, landcolor="whitesmoke", countrycolor="black")
+
+
+
+
+fig.update_layout(margin={"r":0,"t":30,"l":0,"b":0},
+                  
+                  annotations=[
+                      dict(
+                          x=1.1,  # Position it at the center horizontally
+                          y=0.8,  # Position it slightly above the map
+                          xref="paper",  # Use paper coordinates
+                          yref="paper",  # Use paper coordinates
+                          # text=text_to_display,  # Custom text for the annotation
+                          showarrow=False,
+                          font=dict(size=12, color="darkgrey"),
+                          align="center"
+                      )
+                  ])
+
+
+
+fig.write_html('mapa_departamentos.html',auto_open=True,config= {'displaylogo': False})
