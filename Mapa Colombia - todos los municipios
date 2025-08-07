@@ -64,6 +64,7 @@ fig = px.choropleth(
    # color_continuous_scale=['#B7B7B7', "red"],
    # color_discrete_sequence=[ "red",'#B7B7B7'],
    color_discrete_map = {'0':'#c2c2c2',
+                         'Otro Origen':'#c2c2c2',
                         'Origen Indigena':'#ff0a27',
                        'Origen Natural':'#496e52',
                         'Origen Europeo':'#684aff',
@@ -75,7 +76,7 @@ fig = px.choropleth(
    title="Toponimia de Municipios de Colombia",
    fitbounds='geojson',
    hover_name='Nombre Municipio',
-   hover_data=['Tipo de Nombre','Significado','Nombre Departamento']
+   hover_data={'Tipo de Nombre':True,'Significado':True,'Nombre Departamento':True,'Código Municipio':False}
    
 )
 
